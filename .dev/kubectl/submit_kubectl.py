@@ -80,7 +80,7 @@ def submit(config, args, rest):
         branch=args.branch,
         gpus=args.gpus,
         cpus=args.cpus,
-        mem=f'{args.mem}Gi',
+        mem=f"{args.mem}Gi",
         max_cpus=int(args.cpus * 1.5),
         max_mem=f"{int(args.mem * 1.5)}Gi",
         config=config,

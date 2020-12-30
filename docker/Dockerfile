@@ -94,3 +94,5 @@ RUN sh -c "$(wget -O- https://github.com/deluan/zsh-in-docker/releases/download/
 
 # Set a fixed model cache directory.
 ENV FVCORE_CACHE="/tmp"
+
+RUN pip install git+https://github.com/lvis-dataset/lvis-api.git
