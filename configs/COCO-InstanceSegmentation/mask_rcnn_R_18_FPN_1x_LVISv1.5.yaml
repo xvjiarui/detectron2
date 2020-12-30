@@ -1,0 +1,13 @@
+_BASE_: "../Base-RCNN-FPN.yaml"
+MODEL:
+  WEIGHTS: pretrained/R-18.pkl
+  PIXEL_MEAN: [123.675, 116.280, 103.530]
+  PIXEL_STD: [58.395, 57.120, 57.375]
+  RESNETS:
+    DEPTH: 18
+    RES2_OUT_CHANNELS: 64
+    STRIDE_IN_1X1: False
+  MASK_ON: True
+DATASETS:
+  TRAIN: ("lvis_v1.5_train_cocofied", )
+  TEST: ("lvis_v0.5_val_cocofied", )

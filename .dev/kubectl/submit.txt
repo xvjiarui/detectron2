@@ -1,2 +1,8 @@
-#pointrend_rcnn_R_18_FPN_1x_coco.yaml
 mask_rcnn_R_18_FPN_1x.yaml
+mask_rcnn_R_18_FPN_1x_LVISv0.5.yaml
+mask_rcnn_R_18_FPN_1x_LVISv1.5.yaml
+mask_rcnn_R_18_FPN_1x_LVISv1.yaml
+pointrend_rcnn_R_18_FPN_1x_coco.yaml
+pointrend_rcnn_R_18_FPN_1x_LVISv0.5.yaml
+pointrend_rcnn_R_18_FPN_1x_LVISv1.5.yaml
+pointrend_rcnn_R_18_FPN_1x_LVISv1.yaml

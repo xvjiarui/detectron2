@@ -13,7 +13,7 @@ spec:
       restartPolicy: Never
       containers:
       - name: research
-        image: gitlab-registry.nautilus.optiputer.net/xvjiarui0826/mmaction2:latest
+        image: gitlab-registry.nautilus.optiputer.net/xvjiarui0826/detectron2:latest
         imagePullPolicy: Always
         command: ["/bin/sh"] # replace this with your own job execution scripts
         args: ["-c", "rm -rf mmaction2; git clone -b {{branch}} https://github.com/xvjiarui/detectron2.git; python -m pip install -e detectron2; cd detectron2;
