@@ -70,21 +70,22 @@ def parse_args():
 
 
 def submit(config, args, rest):
-    if config.startswith("projects/PointRend"):
+    if "PointRend" in config:
         script = "projects/PointRend/train_net.py"
     else:
         script = "tools/train_net.py"
     template_dict = dict(
-        job_name=osp.splitext(osp.basename(config))[0].replace("_", "-") + "-",
+        job_name=osp.splitext(osp.basename(config))[0].lower().replace("_", "-") + "-",
         name_space=args.name_space,
         branch=args.branch,
         gpus=args.gpus,
         cpus=args.cpus,
+        mem=f'{args.mem}Gi',
         max_cpus=int(args.cpus * 1.5),
         max_mem=f"{int(args.mem * 1.5)}Gi",
         config=config,
         script=script,
-        py_args=f"OUTPUT_DIR work_dirs/{osp.splitext(osp.basename(config))[0]} " + " ".join(rest),
+        py_args=" ".join(rest) + f" OUTPUT_DIR work_dirs/{osp.splitext(osp.basename(config))[0]} ",
         link="ln -s /exps/detectron2/work_dirs; " if args.ln_exp else "",
     )
     with open(args.job, "r") as f:

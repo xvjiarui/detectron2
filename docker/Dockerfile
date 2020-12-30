@@ -1,46 +1,96 @@
 FROM nvidia/cuda:10.1-cudnn7-devel
 
-ENV DEBIAN_FRONTEND noninteractive
+WORKDIR /workspace
+
+ARG DEBIAN_FRONTEND=noninteractive
+ENV TZ=US/Pacific
+
 RUN apt-get update && apt-get install -y \
-	python3-opencv ca-certificates python3-dev git wget sudo ninja-build
-RUN ln -sv /usr/bin/python3 /usr/bin/python
+    build-essential \
+    cmake \
+    curl \
+    g++ \
+    wget \
+    bzip2 \
+    git \
+    vim \
+    tmux \
+    htop \
+    git \
+    zip \
+    unzip \
+    ca-certificates \
+    libosmesa6-dev \
+    libgl1-mesa-glx \
+    libglfw3 \
+    patchelf \
+    libglu1-mesa \
+    libxext6 \
+    libxtst6 \
+    libxrender1 \
+    libxi6 \
+    libjpeg-dev \
+    libpng-dev \
+    libopenblas-dev \
+    libopencv-dev \
+    libyaml-dev \
+    libavformat-dev \
+    libavcodec-dev \
+    libswscale-dev \
+    libavutil-dev \
+    libavfilter-dev \
+    libavdevice-dev \
+    libswresample-dev \
+    less \
+    groff \
+    memcached \
+    s3cmd && \
+    ln -s /usr/lib/x86_64-linux-gnu/libGL.so.1 /usr/lib/x86_64-linux-gnu/libGL.so
 
-# create a non-root user
-ARG USER_ID=1000
-RUN useradd -m --no-log-init --system  --uid ${USER_ID} appuser -g sudo
-RUN echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
-USER appuser
-WORKDIR /home/appuser
+RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 
-ENV PATH="/home/appuser/.local/bin:${PATH}"
-RUN wget https://bootstrap.pypa.io/get-pip.py && \
-	python3 get-pip.py --user && \
-	rm get-pip.py
+RUN curl https://rclone.org/install.sh | bash
 
-# install dependencies
-# See https://pytorch.org/ for other options if you use a different version of CUDA
-RUN pip install --user tensorboard cmake   # cmake from apt-get is too old
-RUN pip install --user torch==1.7.1 torchvision==0.8.2 -f https://download.pytorch.org/whl/cu101/torch_stable.html
+# Set timezone
+RUN ln -sf /usr/share/zoneinfo/US/Pacific /etc/localtime
 
-RUN pip install --user 'git+https://github.com/facebookresearch/fvcore'
-# install detectron2
-RUN git clone https://github.com/facebookresearch/detectron2 detectron2_repo
-# set FORCE_CUDA because during `docker build` cuda is not accessible
+# Get Conda-ified Python.
+RUN echo 'export PATH=/opt/conda/bin:$PATH' > /etc/profile.d/conda.sh && \
+    wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda.sh && \
+    sh ~/miniconda.sh -b -p /opt/conda && \
+    rm ~/miniconda.sh
+
+ENV PATH /opt/conda/bin:$PATH
+
+# Set CUDA_ROOT
+RUN export CUDA_HOME="/usr/local/cuda"
+
+# Install pytorch
+RUN conda install pytorch=1.6.0 torchvision cudatoolkit=10.1 -c pytorch
+RUN pip install simplejson psutil opencv-python tensorboard
+RUN conda install av -c conda-forge
+RUN conda install -c conda-forge moviepy
+
+# Install decord
+#RUN git clone --recursive https://github.com/dmlc/decord
+#RUN cd decord && mkdir build && cd build && cmake .. -DUSE_CUDA=0 && make && cd ../python && python setup.py install
+RUN pip install decord==0.4.2
+
+# Install FAIR suit
 ENV FORCE_CUDA="1"
 # This will by default build detectron2 for all common cuda architectures and take a lot more time,
 # because inside `docker build`, there is no way to tell which architecture will be used.
 ARG TORCH_CUDA_ARCH_LIST="Kepler;Kepler+Tesla;Maxwell;Maxwell+Tegra;Pascal;Volta;Turing"
 ENV TORCH_CUDA_ARCH_LIST="${TORCH_CUDA_ARCH_LIST}"
+RUN pip install 'git+https://github.com/facebookresearch/fvcore'
+RUN pip install detectron2 -f https://dl.fbaipublicfiles.com/detectron2/wheels/cu101/torch1.6/index.html
 
-RUN pip install --user -e detectron2_repo
+# Install Kornia
+#RUN pip install kornia
+RUN pip install git+https://github.com/kornia/kornia
+
+# Install zsh
+RUN sh -c "$(wget -O- https://github.com/deluan/zsh-in-docker/releases/download/v1.1.1/zsh-in-docker.sh)" -t robbyrussell -p git
 
 # Set a fixed model cache directory.
 ENV FVCORE_CACHE="/tmp"
-WORKDIR /home/appuser/detectron2_repo
-
-# run detectron2 under user "appuser":
-# wget http://images.cocodataset.org/val2017/000000439715.jpg -O input.jpg
-# python3 demo/demo.py  \
-	#--config-file configs/COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml \
-	#--input input.jpg --output outputs/ \
-	#--opts MODEL.WEIGHTS detectron2://COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x/137849600/model_final_f10217.pkl

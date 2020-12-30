@@ -1,2 +1,2 @@
-pointrend_rcnn_R_18_FPN_1x_coco.yaml
+#pointrend_rcnn_R_18_FPN_1x_coco.yaml
 mask_rcnn_R_18_FPN_1x.yaml

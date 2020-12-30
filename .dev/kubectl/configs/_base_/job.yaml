@@ -17,7 +17,7 @@ spec:
         imagePullPolicy: Always
         command: ["/bin/sh"] # replace this with your own job execution scripts
         args: ["-c", "rm -rf mmaction2; git clone -b {{branch}} https://github.com/xvjiarui/detectron2.git; python -m pip install -e detectron2; cd detectron2;
-        mkdir -p /exps/detectron2/work_dirs; {{link}}
+        mkdir -p /exps/detectron2/work_dirs; ln -s /exps/detectron2/pretrained; {{link}}
         DETECTRON2_DATASETS=/data/ python {{script}} --config-file {{config}} --num-gpus {{gpus}} {{py_args}}"]
         resources:
           requests: # Minimum resources needed for the job
