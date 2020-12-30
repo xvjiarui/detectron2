@@ -606,6 +606,7 @@ Alternatively, you can call evaluation functions yourself (see Colab balloon tut
         ), "Invalid REFERENCE_WORLD_SIZE in config!"
         scale = num_workers / old_world_size
         bs = cfg.SOLVER.IMS_PER_BATCH = int(round(cfg.SOLVER.IMS_PER_BATCH * scale))
+        data_worker = cfg.DATALOADER.NUM_WORKERS = int(round(cfg.DATALOADER.NUM_WORKERS * scale))
         lr = cfg.SOLVER.BASE_LR = cfg.SOLVER.BASE_LR * scale
         max_iter = cfg.SOLVER.MAX_ITER = int(round(cfg.SOLVER.MAX_ITER / scale))
         warmup_iter = cfg.SOLVER.WARMUP_ITERS = int(round(cfg.SOLVER.WARMUP_ITERS / scale))
@@ -616,7 +617,7 @@ Alternatively, you can call evaluation functions yourself (see Colab balloon tut
         logger = logging.getLogger(__name__)
         logger.info(
             f"Auto-scaling the config to batch_size={bs}, learning_rate={lr}, "
-            f"max_iter={max_iter}, warmup={warmup_iter}."
+            f"max_iter={max_iter}, warmup={warmup_iter}, data worker={data_worker}."
         )
 
         if frozen:

@@ -56,6 +56,13 @@ def parse_args():
     parser.add_argument("--gpus", type=int, default=4, help="number of gpus to use ")
     parser.add_argument("--cpus", type=int, default=8, help="number of cpus to use")
     parser.add_argument("--mem", type=int, default=24, help="amount of memory to use")
+    parser.add_argument(
+        "--reference-world-size",
+        "-r",
+        type=int,
+        default=0,
+        help="Detectron2 REFERENCE_WORLD_SIZE with DATALOADER.NUM_WORKERS",
+    )
     parser.add_argument("--file", "-f", type=str, help="config txt file")
     parser.add_argument(
         "--name-space",
@@ -70,6 +77,11 @@ def parse_args():
 
 
 def submit(config, args, rest):
+    py_args = (" ".join(rest) + f" OUTPUT_DIR work_dirs/{osp.splitext(osp.basename(config))[0]} ",)
+    if args.reference_world_size != 0:
+        # py_args += f" SOLVER.REFERENCE_WORLD_SIZE {args.reference_world_size} " \
+        #            f" DATALOADER.NUM_WORKERS {4 * 8//args.reference_world_size} "
+        py_args += f" SOLVER.REFERENCE_WORLD_SIZE {args.reference_world_size} "
     if "PointRend" in config:
         script = "projects/PointRend/train_net.py"
     else:
@@ -85,7 +97,7 @@ def submit(config, args, rest):
         max_mem=f"{int(args.mem * 1.5)}Gi",
         config=config,
         script=script,
-        py_args=" ".join(rest) + f" OUTPUT_DIR work_dirs/{osp.splitext(osp.basename(config))[0]} ",
+        py_args=py_args,
         link="ln -s /exps/detectron2/work_dirs; " if args.ln_exp else "",
     )
     with open(args.job, "r") as f:
