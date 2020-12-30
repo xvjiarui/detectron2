@@ -65,9 +65,12 @@ def load_lvis_json(json_file, image_root, dataset_name=None):
     if timer.seconds() > 1:
         logger.info("Loading {} takes {:.2f} seconds.".format(json_file, timer.seconds()))
 
+    id_map = None
     if dataset_name is not None:
         meta = get_lvis_instances_meta(dataset_name)
         MetadataCatalog.get(dataset_name).set(**meta)
+        if "cocofied" in dataset_name:
+            id_map = meta["thing_dataset_id_to_contiguous_id"]
 
     # sort indices for reproducible results
     img_ids = sorted(lvis_api.imgs.keys())
@@ -140,6 +143,15 @@ def load_lvis_json(json_file, image_root, dataset_name=None):
             ), "Annotation contains an invalid polygon with < 3 points"
             assert len(segm) > 0
             obj["segmentation"] = segm
+            if id_map:
+                annotation_category_id = obj["category_id"] + 1
+                try:
+                    obj["category_id"] = id_map[annotation_category_id]
+                except KeyError as e:
+                    raise KeyError(
+                        f"Encountered category_id={annotation_category_id} "
+                        "but this id does not exist in 'categories' of the json file."
+                    ) from e
             objs.append(obj)
         record["annotations"] = objs
         dataset_dicts.append(record)
