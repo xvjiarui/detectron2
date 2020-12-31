@@ -1,0 +1,22 @@
+_BASE_: Base-PointRend-RCNN-FPN.yaml
+MODEL:
+  WEIGHTS: pretrained/R-18.pkl
+  PIXEL_MEAN: [123.675, 116.280, 103.530]
+  PIXEL_STD: [58.395, 57.120, 57.375]
+  RESNETS:
+    DEPTH: 18
+    RES2_OUT_CHANNELS: 64
+    STRIDE_IN_1X1: False
+  ROI_MASK_HEAD:
+    NAME: "LIIFMaskHead"
+  POINT_HEAD:
+    NAME: "LIIFPointHead"
+    CELL_DECODE: True
+    LOCAL_ENSEMBLE: True
+# To add COCO AP evaluation against the higher-quality LVIS annotations.
+DATASETS:
+  TRAIN: ("lvis_v1.5_train_cocofied", )
+  TEST: ("lvis_v0.5_val_cocofied", )
+DATALOADER:
+  # 4 GPUs by default, 4 images per batch
+  NUM_WORKERS: 8
