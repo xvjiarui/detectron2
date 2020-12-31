@@ -9,9 +9,11 @@ from torch.nn import functional as F
 from detectron2.layers import Conv2d, ShapeSpec, cat, interpolate
 from detectron2.modeling import ROI_MASK_HEAD_REGISTRY, BaseMaskRCNNHead
 from detectron2.modeling.roi_heads.mask_head import mask_rcnn_inference, mask_rcnn_loss
+from detectron2.structures import Boxes
 
 from .point_features import (
     generate_regular_grid_point_coords,
+    get_point_coords_wrt_image,
     get_uncertain_point_coords_on_grid,
     get_uncertain_point_coords_with_randomness,
     point_sample,
@@ -392,25 +394,23 @@ class LIIFMaskHead(nn.Module):
                     ).transpose(1, 2)
                     assert cell_code.size(1) == 2
             if self.local_ensemble:
-                horizontal_shifts = [-1, 1]
-                vertical_shifts = [-1, 1]
-                shift_eps = 1e-9
+                horizontal_shifts = [-0.5, 0.5]
+                vertical_shifts = [-0.5, 0.5]
             else:
                 horizontal_shifts = [0]
                 vertical_shifts = [0]
-                shift_eps = 0
 
-            _, point_coords_wrt_image = point_sample_fine_grained_features(
-                mask_features_list, features_scales, proposal_boxes,
-                point_coords)
+            point_coords_wrt_image = get_point_coords_wrt_image(
+                Boxes.cat(proposal_boxes).tensor, point_coords
+            )
             ensemble_point_logits = []
             ensemble_weights = []
             for hs in horizontal_shifts:
                 for vs in vertical_shifts:
                     with torch.no_grad():
                         shifted_point_coords = point_coords.clone()
-                        shifted_point_coords[..., 0] += hs / self.mask_coarse_side_size + shift_eps
-                        shifted_point_coords[..., 1] += vs / self.mask_coarse_side_size + shift_eps
+                        shifted_point_coords[..., 0] += hs / self.mask_coarse_side_size
+                        shifted_point_coords[..., 1] += vs / self.mask_coarse_side_size
                         sampled_point_coords = point_sample(
                             mask_grids, shifted_point_coords, mode="nearest", align_corners=False
                         )
@@ -424,8 +424,8 @@ class LIIFMaskHead(nn.Module):
                             location_code = cat([location_code, cell_code], dim=1)
 
                     fine_grained_features, _, = point_sample_fine_grained_features(
-                        mask_features_list, features_scales, proposal_boxes,
-                        shifted_point_coords)
+                        mask_features_list, features_scales, proposal_boxes, shifted_point_coords
+                    )
                     coarse_features = point_sample(
                         mask_coarse_logits, shifted_point_coords, align_corners=False
                     )
@@ -492,13 +492,11 @@ class LIIFMaskHead(nn.Module):
                     assert cell_code.size(1) == 2
 
                 if self.local_ensemble:
-                    horizontal_shifts = [-1, 1]
-                    vertical_shifts = [-1, 1]
-                    shift_eps = 1e-9
+                    horizontal_shifts = [-0.5, 0.5]
+                    vertical_shifts = [-0.5, 0.5]
                 else:
                     horizontal_shifts = [0]
                     vertical_shifts = [0]
-                    shift_eps = 0
 
                 ensemble_point_logits = []
                 ensemble_weights = []
@@ -507,8 +505,8 @@ class LIIFMaskHead(nn.Module):
                     for vs in vertical_shifts:
                         with torch.no_grad():
                             shifted_point_coords = point_coords.clone()
-                            shifted_point_coords[..., 0] += hs / mask_coarse_side_size + shift_eps
-                            shifted_point_coords[..., 1] += vs / mask_coarse_side_size + shift_eps
+                            shifted_point_coords[..., 0] += hs / mask_coarse_side_size
+                            shifted_point_coords[..., 1] += vs / mask_coarse_side_size
                             sampled_point_coords = point_sample(
                                 mask_grids,
                                 shifted_point_coords,
