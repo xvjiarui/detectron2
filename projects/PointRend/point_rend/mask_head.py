@@ -400,6 +400,9 @@ class LIIFMaskHead(nn.Module):
                 vertical_shifts = [0]
                 shift_eps = 0
 
+            _, point_coords_wrt_image = point_sample_fine_grained_features(
+                mask_features_list, features_scales, proposal_boxes,
+                point_coords)
             ensemble_point_logits = []
             ensemble_weights = []
             for hs in horizontal_shifts:
@@ -420,12 +423,9 @@ class LIIFMaskHead(nn.Module):
                         if self.cell_decode:
                             location_code = cat([location_code, cell_code], dim=1)
 
-                    (
-                        fine_grained_features,
-                        point_coords_wrt_image,
-                    ) = point_sample_fine_grained_features(
-                        mask_features_list, features_scales, proposal_boxes, shifted_point_coords
-                    )
+                    fine_grained_features, _, = point_sample_fine_grained_features(
+                        mask_features_list, features_scales, proposal_boxes,
+                        shifted_point_coords)
                     coarse_features = point_sample(
                         mask_coarse_logits, shifted_point_coords, align_corners=False
                     )
