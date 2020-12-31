@@ -223,3 +223,43 @@ def get_point_coords_wrt_image(boxes_coords, point_coords):
         point_coords_wrt_image[:, :, 0] += boxes_coords[:, None, 0]
         point_coords_wrt_image[:, :, 1] += boxes_coords[:, None, 1]
     return point_coords_wrt_image
+
+
+def point_sample_cell(features_list, feature_scales, boxes, point_coords):
+    """
+    Get features from feature maps in `features_list` that correspond to specific point coordinates
+        inside each bounding box from `boxes`.
+
+    Args:
+        features_list (list[Tensor]): A list of feature map tensors to get features from.
+        feature_scales (list[float]): A list of scales for tensors in `features_list`.
+        boxes (list[Boxes]): A list of I Boxes  objects that contain R_1 + ... + R_I = R boxes all
+            together.
+        point_coords (Tensor): A tensor of shape (R, P, 2) that contains
+            [0, 1] x [0, 1] box-normalized coordinates of the P sampled points.
+
+    Returns:
+        point_features (Tensor): A tensor of shape (R, C, P) that contains features sampled
+            from all features maps in feature_list for P sampled points for all R boxes in `boxes`.
+        point_coords_wrt_image (Tensor): A tensor of shape (R, P, 2) that contains image-level
+            coordinates of P points.
+    """
+    num_boxes = [b.tensor.size(0) for b in boxes]
+
+    split_point_coords = torch.split(point_coords, num_boxes)
+
+    cells = []
+    for idx_img, point_coords_per_image in enumerate(split_point_coords):
+        celles_per_image = []
+        box = boxes[idx_img].tensor
+        box_h, box_w = box[:, 2] - box[:, 0], box[:, 3] - box[:, 1]
+        box_wh = torch.stack([box_w, box_h], dim=-1)
+        for idx_feature, feature_map in enumerate(features_list):
+            h, w = feature_map.shape[-2:]
+            scale = _as_tensor([w, h]) / feature_scales[idx_feature]
+            box_wh /= scale.to(feature_map.device)
+            box_wh = box_wh.unsqueeze(1).expand_as(point_coords_per_image)
+            celles_per_image.append(box_wh)
+        cells.append(cat(celles_per_image, dim=1))
+
+    return cat(cells, dim=0)

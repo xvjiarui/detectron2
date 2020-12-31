@@ -55,7 +55,7 @@ def parse_args():
     parser.add_argument("--wandb", "-w", action="store_true", help="use wandb")
     parser.add_argument("--gpus", type=int, default=4, help="number of gpus to use ")
     parser.add_argument("--cpus", type=int, default=8, help="number of cpus to use")
-    parser.add_argument("--mem", type=int, default=24, help="amount of memory to use")
+    parser.add_argument("--mem", type=int, default=30, help="amount of memory to use")
     parser.add_argument(
         "--reference-world-size",
         "-r",
@@ -77,7 +77,7 @@ def parse_args():
 
 
 def submit(config, args, rest):
-    py_args = (" ".join(rest) + f" OUTPUT_DIR work_dirs/{osp.splitext(osp.basename(config))[0]} ",)
+    py_args = " ".join(rest) + f" OUTPUT_DIR work_dirs/{osp.splitext(osp.basename(config))[0]} "
     if args.reference_world_size != 0:
         # py_args += f" SOLVER.REFERENCE_WORLD_SIZE {args.reference_world_size} " \
         #            f" DATALOADER.NUM_WORKERS {4 * 8//args.reference_world_size} "

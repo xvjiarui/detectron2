@@ -46,3 +46,7 @@ def add_pointrend_config(cfg):
     # If True, then coarse prediction features are used as inout for each layer in PointRend's MLP.
     cfg.MODEL.POINT_HEAD.COARSE_PRED_EACH_LAYER = True
     cfg.MODEL.POINT_HEAD.COARSE_SEM_SEG_HEAD_NAME = "SemSegFPNHead"
+    # LIIF
+    cfg.MODEL.POINT_HEAD.LOCATION_EACH_LAYER = True
+    cfg.MODEL.POINT_HEAD.CELL_DECODE = False
+    cfg.MODEL.POINT_HEAD.LOCAL_ENSEMBLE = False
