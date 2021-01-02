@@ -12,12 +12,14 @@ from detectron2.modeling.roi_heads.mask_head import mask_rcnn_inference, mask_rc
 from detectron2.structures import Boxes
 
 from .point_features import (
+    _as_tensor,
     generate_regular_grid_point_coords,
     get_point_coords_wrt_image,
     get_uncertain_point_coords_on_grid,
     get_uncertain_point_coords_with_randomness,
     point_sample,
     point_sample_cell,
+    point_sample_fine_grained_ensemble_features,
     point_sample_fine_grained_features,
 )
 from .point_head import build_point_head, roi_mask_point_loss
@@ -315,6 +317,7 @@ class LIIFMaskHead(nn.Module):
         # configuration of LIIF
         self.cell_decode                        = cfg.MODEL.POINT_HEAD.CELL_DECODE
         self.local_ensemble                     = cfg.MODEL.POINT_HEAD.LOCAL_ENSEMBLE
+        self.point_sample_mode                     = cfg.MODEL.POINT_HEAD.POINT_SAMPLE_MODE
         # next two parameters are use in the adaptive subdivions inference procedure
         self.mask_point_subdivision_steps       = cfg.MODEL.POINT_HEAD.SUBDIVISION_STEPS
         self.mask_point_subdivision_num_points  = cfg.MODEL.POINT_HEAD.SUBDIVISION_NUM_POINTS
@@ -394,47 +397,58 @@ class LIIFMaskHead(nn.Module):
                     ).transpose(1, 2)
                     assert cell_code.size(1) == 2
             if self.local_ensemble:
-                horizontal_shifts = [-0.5, 0.5]
-                vertical_shifts = [-0.5, 0.5]
+                offsets = [(-0.5, -0.5), (-0.5, 0.5), (0.5, -0.5), (0.5, 0.5)]
             else:
-                horizontal_shifts = [0]
-                vertical_shifts = [0]
+                offsets = [(0.0, 0.0)]
 
             point_coords_wrt_image = get_point_coords_wrt_image(
                 Boxes.cat(proposal_boxes).tensor, point_coords
             )
             ensemble_point_logits = []
             ensemble_weights = []
-            for hs in horizontal_shifts:
-                for vs in vertical_shifts:
-                    with torch.no_grad():
-                        shifted_point_coords = point_coords.clone()
-                        shifted_point_coords[..., 0] += hs / self.mask_coarse_side_size
-                        shifted_point_coords[..., 1] += vs / self.mask_coarse_side_size
-                        sampled_point_coords = point_sample(
-                            mask_grids, shifted_point_coords, mode="nearest", align_corners=False
-                        )
-                        relative_point_coords = (
-                            shifted_point_coords.transpose(1, 2) - sampled_point_coords
-                        )
-                        relative_point_coords *= self.mask_coarse_side_size
-                        assert relative_point_coords.size(1) == 2
-                        location_code = relative_point_coords
-                        if self.cell_decode:
-                            location_code = cat([location_code, cell_code], dim=1)
+            for offset in offsets:
+                with torch.no_grad():
+                    # [N, P, 2]
+                    shifted_point_coords = point_coords.clone()
+                    shifted_point_coords += (
+                        _as_tensor(offset).to(point_coords.device) / self.mask_coarse_side_size
+                    )
+                    # [N, P, 2]
+                    sampled_point_coords = point_sample(
+                        mask_grids,
+                        shifted_point_coords,
+                        mode=self.point_sample_mode,
+                        align_corners=False,
+                    ).transpose(1, 2)
+                    relative_point_coords = (shifted_point_coords - sampled_point_coords).transpose(
+                        1, 2
+                    )
+                    relative_point_coords *= self.mask_coarse_side_size
+                    assert relative_point_coords.size(1) == 2
+                    location_code = relative_point_coords
+                    if self.cell_decode:
+                        location_code = cat([location_code, cell_code], dim=1)
 
-                    fine_grained_features, _, = point_sample_fine_grained_features(
-                        mask_features_list, features_scales, proposal_boxes, shifted_point_coords
-                    )
-                    coarse_features = point_sample(
-                        mask_coarse_logits, shifted_point_coords, align_corners=False
-                    )
-                    point_logits = self.point_head(
-                        fine_grained_features, coarse_features, location_code
-                    )
-                    area = torch.abs(relative_point_coords[:, 0] * relative_point_coords[:, 1])
-                    ensemble_point_logits.append(point_logits)
-                    ensemble_weights.append(area.unsqueeze(1))
+                fine_grained_features, _, = point_sample_fine_grained_ensemble_features(
+                    mask_features_list,
+                    features_scales,
+                    proposal_boxes,
+                    point_coords,
+                    offset=offset,
+                    mode=self.point_sample_mode,
+                )
+                coarse_features = point_sample(
+                    mask_coarse_logits,
+                    sampled_point_coords,
+                    mode=self.point_sample_mode,
+                    align_corners=False,
+                )
+                point_logits = self.point_head(
+                    fine_grained_features, coarse_features, location_code
+                )
+                area = torch.abs(relative_point_coords[:, 0] * relative_point_coords[:, 1])
+                ensemble_point_logits.append(point_logits)
+                ensemble_weights.append(area.unsqueeze(1))
             point_logits = ensemble_point_logits[0]
             if self.local_ensemble:
                 assert len(ensemble_weights) == 4
@@ -492,52 +506,53 @@ class LIIFMaskHead(nn.Module):
                     assert cell_code.size(1) == 2
 
                 if self.local_ensemble:
-                    horizontal_shifts = [-0.5, 0.5]
-                    vertical_shifts = [-0.5, 0.5]
+                    offsets = [(-0.5, -0.5), (-0.5, 0.5), (0.5, -0.5), (0.5, 0.5)]
                 else:
-                    horizontal_shifts = [0]
-                    vertical_shifts = [0]
+                    offsets = [(0.0, 0.0)]
 
                 ensemble_point_logits = []
                 ensemble_weights = []
                 mask_coarse_side_size = mask_logits.size(2)
-                for hs in horizontal_shifts:
-                    for vs in vertical_shifts:
-                        with torch.no_grad():
-                            shifted_point_coords = point_coords.clone()
-                            shifted_point_coords[..., 0] += hs / mask_coarse_side_size
-                            shifted_point_coords[..., 1] += vs / mask_coarse_side_size
-                            sampled_point_coords = point_sample(
-                                mask_grids,
-                                shifted_point_coords,
-                                mode="nearest",
-                                align_corners=False,
-                            )
-                            relative_point_coords = (
-                                shifted_point_coords.transpose(1, 2) - sampled_point_coords
-                            )
-                            relative_point_coords *= mask_coarse_side_size
-                            assert relative_point_coords.size(1) == 2
-                            location_code = relative_point_coords
-                            if self.cell_decode:
-                                location_code = cat([location_code, cell_code], dim=1)
-                            fine_grained_features, _ = point_sample_fine_grained_features(
-                                mask_features_list,
-                                features_scales,
-                                pred_boxes,
-                                shifted_point_coords,
-                            )
-                            coarse_features = point_sample(
-                                mask_coarse_logits, shifted_point_coords, align_corners=False
-                            )
-                            point_logits = self.point_head(
-                                fine_grained_features, coarse_features, location_code
-                            )
-                            area = torch.abs(
-                                relative_point_coords[:, 0] * relative_point_coords[:, 1]
-                            )
-                            ensemble_point_logits.append(point_logits)
-                            ensemble_weights.append(area.unsqueeze(1))
+                for offset in offsets:
+                    shifted_point_coords = point_coords.clone()
+                    shifted_point_coords += (
+                        _as_tensor(offset).to(point_coords.device) / mask_coarse_side_size
+                    )
+                    # [N, P, 2]
+                    sampled_point_coords = point_sample(
+                        mask_grids,
+                        shifted_point_coords,
+                        mode=self.point_sample_mode,
+                        align_corners=False,
+                    ).transpose(1, 2)
+                    relative_point_coords = (shifted_point_coords - sampled_point_coords).transpose(
+                        1, 2
+                    )
+                    relative_point_coords *= mask_coarse_side_size
+                    assert relative_point_coords.size(1) == 2
+                    location_code = relative_point_coords
+                    if self.cell_decode:
+                        location_code = cat([location_code, cell_code], dim=1)
+                    fine_grained_features, _ = point_sample_fine_grained_ensemble_features(
+                        mask_features_list,
+                        features_scales,
+                        pred_boxes,
+                        sampled_point_coords,
+                        offset=offset,
+                        mode=self.point_sample_mode,
+                    )
+                    coarse_features = point_sample(
+                        mask_coarse_logits,
+                        sampled_point_coords,
+                        mode=self.point_sample_mode,
+                        align_corners=False,
+                    )
+                    point_logits = self.point_head(
+                        fine_grained_features, coarse_features, location_code
+                    )
+                    area = torch.abs(relative_point_coords[:, 0] * relative_point_coords[:, 1])
+                    ensemble_point_logits.append(point_logits)
+                    ensemble_weights.append(area.unsqueeze(1))
                 point_logits = ensemble_point_logits[0]
                 if self.local_ensemble:
                     assert len(ensemble_weights) == 4

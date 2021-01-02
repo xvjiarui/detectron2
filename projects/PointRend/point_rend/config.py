@@ -50,3 +50,4 @@ def add_pointrend_config(cfg):
     cfg.MODEL.POINT_HEAD.LOCATION_EACH_LAYER = True
     cfg.MODEL.POINT_HEAD.CELL_DECODE = False
     cfg.MODEL.POINT_HEAD.LOCAL_ENSEMBLE = False
+    cfg.MODEL.POINT_HEAD.POINT_SAMPLE_MODE = "bilinear"

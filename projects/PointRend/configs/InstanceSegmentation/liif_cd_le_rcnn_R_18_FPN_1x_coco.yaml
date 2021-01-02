@@ -13,6 +13,7 @@ MODEL:
     NAME: "LIIFPointHead"
     CELL_DECODE: True
     LOCAL_ENSEMBLE: True
+    POINT_SAMPLE_MODE: nearest
 # To add COCO AP evaluation against the higher-quality LVIS annotations.
 DATASETS:
 #  TRAIN: ("lvis_v1.5_train_cocofied", )

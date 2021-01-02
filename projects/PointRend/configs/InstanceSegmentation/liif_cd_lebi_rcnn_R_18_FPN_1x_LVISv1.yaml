@@ -15,7 +15,7 @@ MODEL:
     LOCAL_ENSEMBLE: True
 # To add COCO AP evaluation against the higher-quality LVIS annotations.
 DATASETS:
-  TRAIN: ("lvis_v1.5_train_cocofied", )
+  TRAIN: ("lvis_v1_train_cocofied", )
   TEST: ("lvis_v0.5_val_cocofied", )
 DATALOADER:
   # 4 GPUs by default, 4 images per batch
