@@ -45,3 +45,6 @@ _darcs
 !/datasets/*.*
 /projects/*/datasets
 /models
+
+# customize
+.dev/kubectl/*.sh

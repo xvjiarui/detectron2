@@ -484,6 +484,8 @@ class LIIFMaskHead(nn.Module):
                     mask_logits, scale_factor=2, mode="bilinear", align_corners=False
                 )
                 # get new grid (nearest)
+                # TODO even bilinear has some difference
+                # mask_grids = interpolate(mask_grids, scale_factor=2, mode="bilinear", align_corners=False)
                 mask_grids = interpolate(mask_grids, scale_factor=2, mode="nearest")
                 # If `mask_point_subdivision_num_points` is larger or equal to the
                 # resolution of the next step, then we can skip this step
@@ -537,7 +539,7 @@ class LIIFMaskHead(nn.Module):
                         mask_features_list,
                         features_scales,
                         pred_boxes,
-                        sampled_point_coords,
+                        point_coords,
                         offset=offset,
                         mode=self.point_sample_mode,
                     )
